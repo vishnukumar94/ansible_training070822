@@ -1,0 +1,80 @@
+---
+- name: Update latest package in Server with Amazon OS
+  ansible.builtin.yum:
+    name: '*'
+    state: latest
+  when: (ansible_facts['distribution']=="Amazon")
+- name: Update latest package in Server with Ubuntu OS
+  ansible.builtin.apt:
+    name: '*'
+    state: latest
+    update_cache: yes
+  when: (ansible_facts['distribution']=="Ubuntu")
+- name: Install jdk 11 in Ubuntu 
+  ansible.builtin.apt:
+    pkg: 
+      - openjdk-11-jdk
+      - wget
+    state: present
+  when: (ansible_facts['distribution']=="Ubuntu")
+- name: Enable openjdk11 in amazon linux extras
+  ansible.builtin.command: amazon-linux-extras enable "{{ javaversion }}"
+  when: (ansible_facts['distribution']=="Amazon")
+- name: Install openjdk for Amazon OS
+  ansible.builtin.yum:
+    name: 
+      - "{{ javapackagename }}"
+      - wget
+    state: present
+  when: (ansible_facts['distribution']=="Amazon")
+- name: add tomcat group
+  ansible.builtin.group:
+    name: "{{ tomcat_group }}"
+    state: present
+    system: yes
+- name: add tomcat user
+  ansible.builtin.user:
+    name: "{{ tomcat_user }}"
+    group: "{{ tomcat_group }}"
+    home: "{{ tomcat_homepath }}"
+    system: yes
+    shell: /usr/bin/false
+- name: Download latest apache tomcat
+     # ansible.builtin.command: wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.65/bin/apache-tomcat-9.0.65.tar.gz
+  ansible.builtin.command: wget "{{ tomcat_download_url }}{{ tomcat_version }}/bin/apache-tomcat-{{ tomcat_version }}.tar.gz" -P /tmp
+- name: extract apache tomcat
+  ansible.builtin.unarchive:
+    src: "/tmp/apache-tomcat-{{ tomcat_version }}.tar.gz"
+    dest: /usr/share/
+    owner: "{{ tomcat_user }}"
+    group: "{{ tomcat_group }}"
+    remote_src: yes
+- name: create tomcat service - amazon
+  ansible.builtin.template:
+    src: tomcat.service.j2
+    dest: /etc/systemd/system/tomcat.service
+  vars:
+    java_home: /usr/lib/jvm/jre
+  when: (ansible_facts['distribution']=="Amazon")
+- name: create tomcat service - ubuntu
+  ansible.builtin.template:
+    src: tomcat.service.j2
+    dest: /etc/systemd/system/tomcat.service
+  vars:
+    java_home: /usr/lib/jvm/java-11-openjdk-amd64
+  when: (ansible_facts['distribution']=="Ubuntu")
+- name: copy tomcat users file
+  ansible.builtin.template:
+    src: tomcat-users.xml
+    dest: "/usr/share/apache-tomcat-{{ tomcat_version }}/conf/tomcat-users.xml"
+    owner: "{{ tomcat_user }}"
+    group: "{{ tomcat_group }}"
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  notify: enable tomcat service    
+
+
+
+
+

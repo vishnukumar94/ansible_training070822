@@ -1,0 +1,8 @@
+---
+# handlers file for tomcat
+- name: enable tomcat service
+  ansible.builtin.service:
+    name: tomcat
+    enabled: yes
+    state: started
+
